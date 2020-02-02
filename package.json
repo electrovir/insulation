@@ -1,0 +1,45 @@
+{
+    "name": "insulation",
+    "version": "1.0.0",
+    "description": "Prevent unwanted imports between TS projects",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/electrovir/insulation"
+    },
+    "bugs": {
+        "url": "https://github.com/electrovir/insulation/issues"
+    },
+    "homepage": "https://github.com/electrovir/insulation",
+    "author": {
+        "name": "electrovir"
+    },
+    "keywords": [
+        "insulation",
+        "isolation",
+        "projects",
+        "typescript",
+        "imports"
+    ],
+    "bin": {
+        "insulate": "dist/src/cli.js"
+    },
+    "main": "dist/src/index.js",
+    "scripts": {
+        "compile": "rm -rf dist && tsc && chmod +x dist/src/cli.js",
+        "format": "prettier --write './{,!(dist)/**/}*.+(ts|json|html)'",
+        "prepublishOnly": "npm upgrade && npm install && npm test",
+        "test": "npm run compile && node dist/test/test.js"
+    },
+    "typings": "dist/src/index.d.ts",
+    "dependencies": {
+        "fs-extra": "8.x",
+        "minimist": "1.x",
+        "typescript": "3.x"
+    },
+    "devDependencies": {
+        "@types/fs-extra": "8.x",
+        "@types/minimist": "1.x",
+        "@types/node": "13.x"
+    }
+}

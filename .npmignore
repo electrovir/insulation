@@ -1,0 +1,5 @@
+.prettierrc.json
+dist/test
+src
+test
+tsconfig.json
