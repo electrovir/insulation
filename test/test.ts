@@ -1,39 +1,41 @@
-import {checkInsulation} from '../src';
-import {join} from 'path';
+import * as styles from 'ansi-styles';
 
-const tests = [
-    {
-        dir: 'test-dir-correct',
-        expectedIllegals: 0,
-    },
-    {
-        dir: 'test-dir-error',
-        expectedIllegals: 1,
-    },
-];
+export type TestResult = {
+    passed: boolean;
+    testName: string;
+    failureDetail: string;
+};
 
-async function run() {
-    await Promise.all(
-        tests.map(async test => {
-            const {projects, illegalImports} = await checkInsulation(
-                join('test', test.dir),
-                join('test', test.dir, '.insulation.json'),
-                true,
-            );
-            if (Object.keys(illegalImports).length !== test.expectedIllegals) {
-                throw new Error(
-                    `"${test.dir} has ${
-                        Object.keys(illegalImports).length
-                    } projects with illegal imports but expected ${test.expectedIllegals}`,
-                );
-            }
-        }),
-    );
+function formatTestResults(results: TestResult[]): string {
+    const resultString =
+        '\t' +
+        results
+            .map(result => {
+                const output =
+                    `${styles.bold.open}` +
+                    (result.passed ? `${styles.green.open}Passed` : `${styles.red.open}Failed`) +
+                    `${styles.reset.close}: ${result.testName}${
+                        result.passed ? '' : '\n\t\t' + result.failureDetail.split('\n').join('\n\t\t')
+                    }`;
+                return output;
+            })
+            .join('\n\t');
+
+    return resultString;
 }
 
-run()
-    .then(() => process.exit(0))
-    .catch(error => {
-        console.error(error.message);
+export function handleTests(testResults: TestResult[], testType: string) {
+    const resultString = formatTestResults(testResults);
+
+    const testTypeString = `${styles.inverse.open}${styles.bold.open}${testType}${styles.inverse.close}${styles.bold.close}`;
+
+    if (testResults.some(test => !test.passed)) {
+        console.error(resultString);
+        console.error(`${styles.red.open}Some ${testTypeString} tests failed${styles.reset.close}\n`);
         process.exit(1);
-    });
+    } else {
+        console.log(resultString);
+        console.log(`${styles.green.open}All ${testTypeString} tests passed${styles.reset.close}\n`);
+        process.exit(0);
+    }
+}

@@ -1,52 +1,106 @@
 #!/usr/bin/env node
 
 import * as minimist from 'minimist';
-import {checkInsulation} from './index';
+import {insulate, InsulationConfig, InvalidDependency} from './index';
 import {join} from 'path';
+import {readFileSync, existsSync} from 'fs';
 
 const DEFAULT_INSULATION_FILE = '.insulation.json';
 
-async function run() {
-    const args = minimist(process.argv.slice(2));
+export class NotInsulatedError extends Error {
+    public name = 'NotInsulatedError';
+}
 
-    const dirToCheck = (typeof args.d === 'string' && args.d) || './';
-    const insulationFilePath = (typeof args.f === 'string' && args.f) || join(dirToCheck, DEFAULT_INSULATION_FILE);
-    const loud = !args.s;
-    const compile = !!args.c;
+function readConfigFile(dirToCheck: string, loud: boolean, insulationFilePath?: string): InsulationConfig {
+    const dirToCheckConfigPath = join(dirToCheck, DEFAULT_INSULATION_FILE);
+    const cwdConfigPath = join('.', DEFAULT_INSULATION_FILE);
 
-    const {projects, illegalImports} = await checkInsulation(dirToCheck, insulationFilePath, compile);
+    let configPathToUse = '';
+    if (insulationFilePath && existsSync(insulationFilePath)) {
+        configPathToUse = insulationFilePath;
+    } else {
+        if (!insulationFilePath) {
+            if (loud) {
+                console.log(`No config file path given`);
+            }
+        } else if (!existsSync(insulationFilePath)) {
+            if (loud) {
+                console.log(`Given config file does not exist: "${insulationFilePath}"`);
+            }
+        }
 
-    if (loud) {
-        console.log('Projects checked:');
-        projects.map(project => project.name).forEach(name => console.log(`    ${name}`));
+        if (existsSync(dirToCheckConfigPath)) {
+            configPathToUse = dirToCheckConfigPath;
+        } else {
+            // if this one fails, it fails on the read file step
+            configPathToUse = cwdConfigPath;
+        }
+        if (loud) {
+            console.log(`Defaulting config file to "${configPathToUse}"`);
+        }
     }
 
-    if (Object.keys(illegalImports).length > 0) {
+    return JSON.parse(readFileSync(configPathToUse).toString());
+}
+
+function handleResults(invalidDeps: InvalidDependency[], loud: boolean) {
+    if (invalidDeps.length > 0) {
         if (loud) {
-            Object.keys(illegalImports).forEach(projectName => {
-                console.log(`${projectName} incorrectly imports:`);
-                illegalImports[projectName].forEach(illegalImport => console.log(`    ${illegalImport}`));
+            const badImportsMapped = invalidDeps.reduce(
+                (accum: {[key: string]: InvalidDependency[]}, invalidDependency) => {
+                    if (!accum.hasOwnProperty(invalidDependency.importedBy)) {
+                        accum[invalidDependency.importedBy] = [];
+                    }
+                    accum[invalidDependency.importedBy].push(invalidDependency);
+                    return accum;
+                },
+                {},
+            );
+
+            Object.keys(badImportsMapped).forEach(moduleName => {
+                console.error(`${moduleName} incorrectly imports:`);
+                badImportsMapped[moduleName].forEach(badDependency =>
+                    console.error(`\t${badDependency.dependency.resolved}`),
+                );
             });
         }
-        if (loud) {
-            console.error('\nInsulation failed.\n');
-            throw new Error('Insulation failed.');
-        } else {
-            throw new Error('');
-        }
+        throw new NotInsulatedError('Imports not insulated.');
     } else {
         if (loud) {
-            console.log('Insulation passed.');
+            console.log('Imports properly insulated.');
         }
         return;
     }
 }
 
-run()
-    .then(() => process.exit(0))
-    .catch(error => {
-        if (error.message) {
-            console.error(error);
-        }
-        process.exit(1);
-    });
+async function cli(dirToCheck: string, loud: boolean, insulationFilePath?: string) {
+    const configJson = readConfigFile(dirToCheck, loud, insulationFilePath);
+
+    const {invalidDeps, modules} = await insulate(dirToCheck, configJson, true);
+
+    if (loud) {
+        console.log('All modules found:');
+        console.log('\n\t' + modules.map(module => module.source).join('\n\t'));
+    }
+
+    return handleResults(invalidDeps, loud);
+}
+
+function main() {
+    const args = minimist(process.argv.slice(2));
+
+    const dirToCheck = (typeof args.d === 'string' && args.d) || './';
+    const insulationFilePath = (typeof args.f === 'string' && args.f) || undefined;
+    const loud = !args.s;
+
+    cli(dirToCheck, loud, insulationFilePath)
+        .then(() => process.exit(0))
+        .catch(error => {
+            if (error && loud) {
+                console.error(error);
+            }
+            process.exit(1);
+        });
+}
+
+main();

@@ -1,7 +1,7 @@
 {
     "name": "insulation",
-    "version": "1.0.0",
-    "description": "Prevent unwanted imports between TS projects",
+    "version": "2.0.0",
+    "description": "Prevent unwanted imports between TS or JS folders",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -18,28 +18,35 @@
         "insulation",
         "isolation",
         "projects",
+        "folders",
         "typescript",
-        "imports"
+        "imports",
+        "unwanted imports",
+        "restrict imports"
     ],
     "bin": {
         "insulate": "dist/src/cli.js"
     },
     "main": "dist/src/index.js",
     "scripts": {
-        "compile": "rm -rf dist && tsc && chmod +x dist/src/cli.js",
+        "check-format": "prettier --check './{,!(dist)/**/}*.+(ts|json|html)'",
+        "debug": "node --inspect-brk -r ts-node/register test/test-api.ts",
         "format": "prettier --write './{,!(dist)/**/}*.+(ts|json|html)'",
-        "prepublishOnly": "npm upgrade && npm install && npm test",
-        "test": "npm run compile && node dist/test/test.js"
+        "prepublishOnly": "npm install && npm run check-format && npm test && rm -rf dist && tsc && chmod +x dist/src/cli.js",
+        "test": "./test/run-all-tests.sh",
+        "test:api": "ts-node test/test-api.ts",
+        "test:cli": "ts-node test/test-cli.ts"
     },
     "typings": "dist/src/index.d.ts",
     "dependencies": {
-        "fs-extra": "8.x",
-        "minimist": "1.x",
-        "typescript": "3.x"
+        "dependency-cruiser": "8.2.0",
+        "minimist": "1.2.5"
     },
     "devDependencies": {
-        "@types/fs-extra": "8.x",
-        "@types/minimist": "1.x",
-        "@types/node": "13.x"
+        "@types/minimist": "1.2.0",
+        "@types/node": "13.11.0",
+        "ansi-styles": "4.2.1",
+        "ts-node": "8.8.2",
+        "typescript": "3.8.3"
     }
 }

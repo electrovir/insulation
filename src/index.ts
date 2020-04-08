@@ -1,124 +1,200 @@
-import {readdir, lstatSync, existsSync, emptyDir, readFile} from 'fs-extra';
-import {join, basename} from 'path';
-import {exec} from 'child_process';
+import {lstatSync, existsSync, readFileSync} from 'fs';
+import {join, relative} from 'path';
+import {cruise, IModule, IDependency as Dependency} from 'dependency-cruiser';
+import {getObjectTypedKeys} from './object';
+export {IDependency as Dependency} from 'dependency-cruiser';
 
-type TsProject = {
-    path: string;
-    name: string;
-    imports: string[];
+export class InvalidInsulationConfigError extends Error {
+    public name = 'InvalidInsulationConfigError';
+}
+
+export class DependencyReadError extends Error {
+    public name = 'DependencyReadError';
+}
+
+export type InsulationConfig = {
+    imports: {
+        [dirPath: string]: {
+            allow?: string[];
+            block?: string[];
+        };
+    };
+    excludes?: string[];
 };
 
-async function compileProject(projectPath: string) {
-    return new Promise<string>((resolve, reject) => {
-        exec(`tsc -p "${projectPath}"`, (error, stdout) => {
-            if (error) {
-                reject(error);
-            }
+export type InvalidDependency = {
+    dependency: Dependency;
+    reason: InvalidDependencyReason;
+    importedBy: string;
+};
 
-            resolve(stdout);
-        });
-    });
+/**
+ * An enumeration of the possible reasons why a dependency could be considered invalid.
+ */
+export const enum InvalidDependencyReason {
+    /**
+     * This dependency was explicitly blocked by the insulation config
+     */
+    BLOCKED = 'blocked',
+    /**
+     * This dependency was not in an un-empty allowed import list of the insulation config
+     */
+    NOT_ALLOWED = 'not-allowed',
 }
 
-async function getProjects(dir: string, compile: boolean): Promise<TsProject[]> {
-    let commonRootDir: undefined | string;
-    return await Promise.all(
-        (await readdir(dir))
-            .map(name => join(dir, name))
-            .filter(path => lstatSync(path).isDirectory() && existsSync(join(path, 'tsconfig.json')))
-            .map(async path => {
-                const tsConfigPath = join(path, 'tsconfig.json');
+const ALLOWED_IMPORT_KEYS = ['allow', 'block'];
+const DEFAULT_EXCLUDES = ['node_modules', 'bower_components'];
 
-                const tsConfig: {compilerOptions?: {outDir?: string; rootDir?: string}} = JSON.parse(
-                    (await readFile(tsConfigPath)).toString(),
-                );
-
-                if (!tsConfig.compilerOptions || !tsConfig.compilerOptions.outDir) {
-                    throw new Error(
-                        `${tsConfigPath} is missing "compilerOptions.outDir". See "Project Requirements" in the README for details.`,
-                    );
-                }
-                if (!tsConfig.compilerOptions.rootDir) {
-                    throw new Error(
-                        `${tsConfigPath} is missing "compilerOptions.rootDir" option. See "Project Requirements" in the README for details.`,
-                    );
-                }
-
-                if (commonRootDir === undefined) {
-                    commonRootDir = tsConfig.compilerOptions.rootDir;
-                } else if (commonRootDir !== tsConfig.compilerOptions.rootDir) {
-                    throw new Error(
-                        `Projects do not have the same rootDir. "${commonRootDir}" was expected but ${tsConfigPath} has "${tsConfig.compilerOptions.rootDir}". See "Project Requirements" in the README for details.`,
-                    );
-                }
-
-                const outDirPath = join(path, tsConfig.compilerOptions.outDir);
-
-                if (compile) {
-                    await emptyDir(outDirPath);
-                    await compileProject(path);
-                } else if (!existsSync(outDirPath)) {
-                    throw new Error(`outDir "${outDirPath}" does not exist. Did you forget to compile (tsc) first?`);
-                }
-
-                const currentProjectName = basename(path);
-
-                let selfFound = false;
-
-                const imports = (await readdir(outDirPath)).filter(name => {
-                    if (lstatSync(join(outDirPath, name)).isDirectory()) {
-                        if (name === currentProjectName) {
-                            selfFound = true;
-                            return false;
-                        }
-
-                        return true;
-                    }
-                    return false;
-                });
-
-                if (!selfFound) {
-                    throw new Error(
-                        `outDir for project "${currentProjectName}" ("${outDirPath}") does not contain the project itself! Did you forget to compile TS?`,
-                    );
-                }
-
-                return {
-                    name: currentProjectName,
-                    path,
-                    imports,
-                };
-            }),
-    );
+function invalidConfigError(details: string) {
+    throw new InvalidInsulationConfigError(`Invalid Insulation config: ${details}`);
 }
 
-async function getInsulation(filePath: string) {
-    return JSON.parse((await readFile(filePath)).toString());
-}
-
-export async function checkInsulation(dir: string, insulationFilePath: string, compileProjects: boolean) {
-    const projects = await getProjects(dir, compileProjects);
-
-    if (!projects.length) {
-        throw new Error(`No TS projects were found in "${dir}"`);
+function validateInsulationConfig(loadedConfig: InsulationConfig): asserts loadedConfig is InsulationConfig {
+    if (!loadedConfig.hasOwnProperty('imports')) {
+        invalidConfigError(`missing "imports" property`);
     }
 
-    const insulation = await getInsulation(insulationFilePath);
+    getObjectTypedKeys(loadedConfig.imports).forEach(dirPath => {
+        const innerConfig = loadedConfig.imports[dirPath];
+        const innerKeys = getObjectTypedKeys(innerConfig);
 
-    const illegalImports = projects.reduce((accum: {[key: string]: string[]}, project) => {
-        const allowedImports = insulation[project.name] || [];
+        innerKeys.forEach(innerKey => {
+            if (!ALLOWED_IMPORT_KEYS.includes(innerKey)) {
+                invalidConfigError(`unknown key "${innerKey}"`);
+            }
+            if (!Array.isArray(loadedConfig.imports[dirPath][innerKey])) {
+                invalidConfigError(`array required for "imports.${dirPath}.${innerKey}"`);
+            }
+        });
+    });
 
-        const illegalImports = project.imports.filter(importName => !allowedImports.includes(importName));
+    if (loadedConfig.hasOwnProperty('excludes')) {
+        if (!Array.isArray(loadedConfig.excludes)) {
+            invalidConfigError(`array required for "excludes"`);
+        }
+    }
+}
 
-        if (illegalImports.length) {
-            accum[project.path] = illegalImports;
+export function readInsulationConfig(filePath: string): InsulationConfig {
+    const json = JSON.parse(readFileSync(filePath).toString());
+    validateInsulationConfig(json);
+    return json;
+}
+
+export function getDependencyList(parentDirPath: string, insulationConfig: InsulationConfig): IModule[] {
+    const exclude = DEFAULT_EXCLUDES.concat(insulationConfig.excludes || []).join('|');
+
+    const cruiseOutput = cruise(
+        Object.keys(insulationConfig.imports).map(importPath => join(parentDirPath, importPath)),
+        {
+            exclude,
+        },
+    ).output;
+
+    if (typeof cruiseOutput === 'string') {
+        throw new DependencyReadError(`Unable to read dependencies.`);
+    }
+
+    return cruiseOutput.modules;
+}
+
+export async function insulate(
+    parentDirPath: string,
+    insulationConfig: InsulationConfig,
+    includeOriginalModuleList: true,
+): Promise<{invalidDeps: InvalidDependency[]; modules: IModule[]}>;
+export async function insulate(
+    parentDirPath: string,
+    insulationConfig: InsulationConfig,
+    includeOriginalModuleList?: false | undefined,
+): Promise<InvalidDependency[]>;
+export async function insulate(
+    parentDirPath: string,
+    insulationConfig: InsulationConfig,
+    includeOriginalModuleList?: boolean | undefined,
+): Promise<InvalidDependency[] | {invalidDeps: InvalidDependency[]; modules: IModule[]}> {
+    const relativePath = relative(process.cwd(), parentDirPath);
+    validateInsulationConfig(insulationConfig);
+    const insulationPaths = Object.keys(insulationConfig.imports);
+    if (!insulationPaths.length) {
+        // no need to do anything
+        if (includeOriginalModuleList) {
+            return {
+                invalidDeps: [],
+                modules: [],
+            };
+        } else {
+            return [];
+        }
+    }
+
+    Object.keys(insulationConfig.imports)
+        .map(dir => join(parentDirPath, dir))
+        .forEach(dir => {
+            if (!existsSync(dir)) {
+                invalidConfigError(`"${dir}" from Insulation config does not exist`);
+            }
+            if (!lstatSync(dir).isDirectory()) {
+                invalidConfigError(`"${dir}" from Insulation config is not a directory`);
+            }
+        });
+
+    const modules = getDependencyList(parentDirPath, insulationConfig);
+    const invalidModules = modules.reduce((invalidModules: InvalidDependency[], currentModule) => {
+        const insulationPath = insulationPaths.find(
+            path => currentModule.source.indexOf(join(relativePath, path)) === 0,
+        );
+        if (!insulationPath) {
+            // this module is not part of the config, ignore it
+            return invalidModules;
+        }
+        const pathConfig = insulationConfig.imports[insulationPath];
+
+        // check allowed paths
+        if (pathConfig.allow) {
+            const notAllowedImports = currentModule.dependencies
+                .filter(dependency => {
+                    // dependency is in the current module's dir, this is always allowed
+                    if (dependency.resolved.indexOf(join(relativePath, insulationPath)) === 0) {
+                        return false;
+                    }
+
+                    return !pathConfig.allow?.find(allowedPath => {
+                        return dependency.resolved.indexOf(join(relativePath, allowedPath)) === 0;
+                    });
+                })
+                .map(dependency => ({
+                    dependency,
+                    reason: InvalidDependencyReason.NOT_ALLOWED,
+                    importedBy: currentModule.source,
+                }));
+            invalidModules.push(...notAllowedImports);
         }
 
-        return accum;
-    }, {});
+        // check blocked paths
+        if (pathConfig.block) {
+            const blockedImports = currentModule.dependencies
+                .filter(dependency => {
+                    return pathConfig.block?.find(blockedPath => {
+                        return dependency.resolved.indexOf(join(relativePath, blockedPath)) === 0;
+                    });
+                })
+                .map(dependency => ({
+                    dependency,
+                    reason: InvalidDependencyReason.BLOCKED,
+                    importedBy: currentModule.source,
+                }));
+            invalidModules.push(...blockedImports);
+        }
+        return invalidModules;
+    }, []);
 
-    return {
-        projects,
-        illegalImports,
-    };
+    if (includeOriginalModuleList) {
+        return {
+            invalidDeps: invalidModules,
+            modules,
+        };
+    } else {
+        return invalidModules;
+    }
 }

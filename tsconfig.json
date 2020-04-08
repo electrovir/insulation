@@ -5,8 +5,8 @@
         "module": "commonjs",
         "noImplicitReturns": true,
         "outDir": "dist",
+        "rootDir": "./",
         "strict": true,
         "target": "es6"
-    },
-    "exclude": ["node_modules", "downloads", "dist"]
+    }
 }

@@ -1,56 +1,86 @@
 # Insulation
 
-Prevent unwanted imports between TS projects.
+Prevent unwanted imports between TS or JS folders.
 
 # Usage
 
-Accessible from within npm scripts.
-
 ```sh
-insulate -d dirThatContainsProjects [-f pathToInsulationFile] [-s] [-c]
+insulate -d directoryToCheck [-f pathToInsulationFile] [-s]
 ```
 
--   `-d dirThatContainsProjects`: required, path to the directory which contains the projects to check. Only checks the immediate children of this directory.
--   `-f pathToInsulationFile`: optional, the file which defines the allowed dependencies. This defaults to `.insulation.json` within the passed -d directory. See the [Insulation File](#insulation-file) section below for more details.
+-   `-d directoryToCheck`: required, path to the directory which contains the folders to check. Only checks paths that are explicitly declared in the config.
+-   `-f pathToInsulationFile`: optional, the file which defines the allowed dependencies. This defaults to `.insulation.json` within the passed -d directory. See the [Insulation File](#insulation-file) section below for more details on formatting.
 -   `-s`: silent, optional, makes the script silent so it doesn't log anything. Read script exit values to determine success.
--   `-c`: compile, optional, instructs Insulation to compile each project it checks. Do not use this if the typescript compile process is already part of your pipeline. This will handle all the project compilation but will make Insulation much slower.
 
 Example:
 
 ```sh
-insulate -d ./src -c
+insulate -d ./src
 ```
 
 A useful place to run this command would be in a pre-commit, pre-push, pre-merge, or pre-publish hook that runs tests or linters, etc.
 
-See the [test dir](./test) in the repo for a couple example usages.
-
-# Project Requirements
-
-All TS projects that Insulation will check must have a `.tsconfig` (which is what makes it a TS project in the first place) with `outDir` defined in `compilerOptions` as well as `rootDir`. `outDir` can be any folder name desired. `rootDir` must be the same across all projects and must contain all projects. It is recommended that `rootDir` simply be the same as the directory you pass to `-d`.
+See the [test dir](https://github.com/electrovir/insulation/tree/master/test/test-imports) in the github repo for a couple example usages.
 
 # Insulation File
 
-The Insulation file must be of JSON format. The top level must be an object with properties names being the project names and their associated values being an array of allowed project names (strings). If, when checking the imports, a project is found which is not defined as a property in the Insulation file, it is assumed that that project is not allowed to have _any_ imports.
+The Insulation file must be a JSON file. The structure follows that specified below. If a `dirPath` is in the `imports` object that doesn't exist, the config is considered invalid and the command will error. Any other configuration not matching the structure below will also result in errors.
 
-The default file used for this is `.insulation.json` within the passed `-d` directory.
+## Config structure
 
-See the structure outlined below:
+```typescript
+{
+    imports: {
+        [dirPath: string]: {
+            allow?: string[];
+            block?: string[];
+        };
+    };
+    excludes?: string[];
+};
+```
+
+-   **`allow`:** is a list of paths that the given `dirPath` can import from. If this is an empty array, `dirPath` isn't allowed to import from anything except itself. If this property is not defined, every import is allowed unless blocked by the `block` property.
+
+-   **`block`:** is a list of paths to explicitly block the given `dirPath` from importing. Any of these paths can be a child of an allowed path and it'll work just as you'd expect (allowing the parent path but blocking the child path). If this array is empty or this property is not defined, nothing is blocked. `block` takes precedence over `allow`. This means that if the same path is both blocked and allowed, it will be considered a block and the Insulation check will fail if imports occur from it.
+
+-   **`excludes`:** is an optional property that can be used to ignore any sub-directory names contained within any of the `dirPaths`, full paths, or regex strings. This automatically includes `node_modules` and `bower_components` so that they are both ignored.
+
+Both `allow` and `block` paths are relative to `directoryToCheck` passed into the cli command.
+
+## Simple example:
+
+`a` can only import from `b`. `b` can import from anything _except_ `a`.
 
 ```json
 {
-    "projectName": ["allowedImport1", "allowedImport2"],
-    "projectName2": ["allowedImport3", "allowedImport4"]
+    "imports": {
+        "a": {
+            "allow": ["b"]
+        },
+        "b": {
+            "block": ["a"]
+        }
+    }
 }
 ```
 
-In the following example, projects `back-end` and `front-end` are allowed to import from `common` but not from each other (or anything else). Also note that because `common` is not defined, it is not allowed to import from any projects.
+## Real life example config file
 
-Example:
+In the following example, folders `back-end` and `front-end` are allowed to import from `common` but not from each other (or anything else for that matter). Also note that because `common`'s `allow` property is an empty array, it is not allowed to import from anything.
 
 ```json
 {
-    "back-end": ["common"],
-    "front-end": ["common"]
+    "imports": {
+        "back-end": {
+            "allow": ["common"]
+        },
+        "front-end": {
+            "allow": ["common"]
+        },
+        "common": {
+            "allow": []
+        }
+    }
 }
 ```
