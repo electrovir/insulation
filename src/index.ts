@@ -1,5 +1,5 @@
 import {lstatSync, existsSync, readFileSync} from 'fs';
-import {join, relative} from 'path';
+import {join, relative, isAbsolute} from 'path';
 import {cruise, IModule, IDependency as Dependency} from 'dependency-cruiser';
 import {getObjectTypedKeys} from './object';
 export {IDependency as Dependency} from 'dependency-cruiser';
@@ -99,6 +99,11 @@ export function getDependencyList(parentDirPath: string, insulationConfig: Insul
     return cruiseOutput.modules;
 }
 
+function isChildDir(child: string, parent: string): boolean {
+    const relativePath = relative(parent, child);
+    return !!relativePath && !relativePath.startsWith('..') && !isAbsolute(relativePath);
+}
+
 export async function insulate(
     insulationConfig: InsulationConfig,
     checkDirPath: string,
@@ -121,6 +126,11 @@ export async function insulate(
     }
 
     const relativePath = relative(process.cwd(), checkDirPath);
+
+    function makeRelative(input: string) {
+        return join(relativePath, input);
+    }
+
     const insulationPaths = Object.keys(insulationConfig.imports);
     if (!insulationPaths.length) {
         // no need to do anything
@@ -147,9 +157,7 @@ export async function insulate(
 
     const modules = getDependencyList(checkDirPath, insulationConfig);
     const invalidModules = modules.reduce((invalidModules: InvalidDependency[], currentModule) => {
-        const insulationPath = insulationPaths.find(
-            path => currentModule.source.indexOf(join(relativePath, path)) === 0,
-        );
+        const insulationPath = insulationPaths.find(path => isChildDir(currentModule.source, makeRelative(path)));
         if (!insulationPath) {
             // this module is not part of the config, ignore it
             return invalidModules;
@@ -161,13 +169,20 @@ export async function insulate(
             const notAllowedImports = currentModule.dependencies
                 .filter(dependency => {
                     // dependency is in the current module's dir, this is always allowed
-                    if (dependency.resolved.indexOf(join(relativePath, insulationPath)) === 0) {
+                    if (isChildDir(dependency.resolved, makeRelative(insulationPath))) {
                         return false;
                     }
 
-                    return !pathConfig.allow?.find(allowedPath => {
-                        return dependency.resolved.indexOf(join(relativePath, allowedPath)) === 0;
+                    // allow imports from core modules
+                    if (dependency.coreModule) {
+                        return false;
+                    }
+
+                    const foundAllowedImport = pathConfig.allow?.find(allowedPath => {
+                        return isChildDir(dependency.resolved, makeRelative(allowedPath));
                     });
+
+                    return !foundAllowedImport;
                 })
                 .map(dependency => ({
                     dependency,
@@ -181,8 +196,13 @@ export async function insulate(
         if (pathConfig.block) {
             const blockedImports = currentModule.dependencies
                 .filter(dependency => {
+                    // allow imports from core modules
+                    if (dependency.coreModule) {
+                        return false;
+                    }
+
                     return pathConfig.block?.find(blockedPath => {
-                        return dependency.resolved.indexOf(join(relativePath, blockedPath)) === 0;
+                        return isChildDir(dependency.resolved, makeRelative(blockedPath));
                     });
                 })
                 .map(dependency => ({

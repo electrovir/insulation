@@ -76,12 +76,7 @@ function handleResults(invalidDeps: InvalidDependency[], loud: boolean) {
 async function cli(dirToCheck: string, loud: boolean, insulationFilePath?: string) {
     const configJson = readConfigFile(dirToCheck, loud, insulationFilePath);
 
-    const {invalidDeps, modules} = await insulate(configJson, dirToCheck, true);
-
-    if (loud) {
-        console.log('All modules found:');
-        console.log('\n\t' + modules.map(module => module.source).join('\n\t'));
-    }
+    const {invalidDeps} = await insulate(configJson, dirToCheck, true);
 
     return handleResults(invalidDeps, loud);
 }

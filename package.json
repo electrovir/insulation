@@ -1,6 +1,6 @@
 {
     "name": "insulation",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "description": "Prevent unwanted imports between TS or JS folders",
     "license": "MIT",
     "repository": {
@@ -30,7 +30,7 @@
     "main": "dist/src/index.js",
     "scripts": {
         "check-format": "prettier --check './{,!(dist)/**/}*.+(ts|json|html)'",
-        "debug": "node --inspect-brk -r ts-node/register test/test-api.ts",
+        "debug:api": "node --inspect-brk -r ts-node/register test/test-api.ts",
         "format": "prettier --write './{,!(dist)/**/}*.+(ts|json|html)'",
         "prepublishOnly": "npm install && npm run check-format && npm test && rm -rf dist && tsc && chmod +x dist/src/cli.js",
         "test": "./test/run-all-tests.sh",

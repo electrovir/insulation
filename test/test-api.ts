@@ -45,6 +45,13 @@ const tests: {name: string; config: InsulationConfig; expectedFailures: InvalidD
         },
         expectedFailures: [],
     },
+    {
+        name: "directories with similar names don't clash",
+        config: {
+            imports: {a: {allow: []}, aab: {allow: ['b']}, b: {allow: ['a']}},
+        },
+        expectedFailures: [InvalidDependencyReason.NOT_ALLOWED],
+    },
 ];
 
 async function runApiTests(): Promise<TestResult[]> {

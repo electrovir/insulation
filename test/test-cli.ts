@@ -15,14 +15,14 @@ type CliTest = {
 };
 
 const tests: CliTest[] = [
-    {name: 'Use default config', configPath: '', expectedInError: 'NotInsulatedError: Imports not insulated'},
+    {name: 'use default config', configPath: '', expectedInError: 'NotInsulatedError: Imports not insulated'},
     {
-        name: 'Invalid configuration',
+        name: 'invalid configuration',
         configPath: 'test/test-imports/.insulation-invalid.json',
         expectedInError: 'InvalidInsulationConfigError: ',
     },
     {
-        name: 'No errors',
+        name: 'no errors',
         configPath: 'test/test-imports/.insulation-allow.json',
     },
 ];
@@ -70,7 +70,7 @@ async function runAllCliTests() {
     const silentTest = await testCli('', '-s');
     const silentTestPassed = !silentTest.stderr && !silentTest.stdout;
     allResults.push({
-        testName: 'does silent flag work',
+        testName: 'silent flag prevents output',
         passed: silentTestPassed,
         failureDetail: `stderr:\n\t${silentTest.stderr}\nstdout:\n\t${silentTest.stdout}`,
     });
