@@ -5,10 +5,10 @@ Prevent unwanted imports between TS or JS folders.
 # Usage
 
 ```sh
-insulate -d directoryToCheck [-f pathToInsulationFile] [-s]
+insulate [-d directoryToCheck] [-f pathToInsulationFile] [-s]
 ```
 
--   `-d directoryToCheck`: required, path to the directory which contains the folders to check. Only checks paths that are explicitly declared in the config.
+-   `-d directoryToCheck`: optional, path to the directory which contains the folders to check. Only paths that are explicitly declared in the Insulation file are checked. This defaults to the current directory and can be overridden by the Insulation file as described in the [Insulation File](#insulation-file) section below.
 -   `-f pathToInsulationFile`: optional, the file which defines the allowed dependencies. This defaults to `.insulation.json` within the passed -d directory. See the [Insulation File](#insulation-file) section below for more details on formatting.
 -   `-s`: silent, optional, makes the script silent so it doesn't log anything. Read script exit values to determine success.
 
@@ -22,11 +22,11 @@ A useful place to run this command would be in a pre-commit, pre-push, pre-merge
 
 See the [test dir](https://github.com/electrovir/insulation/tree/master/test/test-imports) in the github repo for a couple example usages.
 
-# Insulation File
+# Insulation file
 
-The Insulation file must be a JSON file. The structure follows that specified below. If a `dirPath` is in the `imports` object that doesn't exist, the config is considered invalid and the command will error. Any other configuration not matching the structure below will also result in errors.
+The Insulation file must be a JSON file. The structure follows that specified below. If a `dirPath` is in the `imports` object that doesn't exist, the Insulation is considered invalid and the command will error. Any other configuration not matching the structure below will also result in errors.
 
-## Config structure
+## Insulation file structure
 
 ```typescript
 {
@@ -36,17 +36,17 @@ The Insulation file must be a JSON file. The structure follows that specified be
             block?: string[];
         };
     };
-    excludes?: string[];
+    exclude?: string[];
+    checkDirectory?: string;
 };
 ```
 
 -   **`allow`:** is a list of paths that the given `dirPath` can import from. If this is an empty array, `dirPath` isn't allowed to import from anything except itself. If this property is not defined, every import is allowed unless blocked by the `block` property.
-
 -   **`block`:** is a list of paths to explicitly block the given `dirPath` from importing. Any of these paths can be a child of an allowed path and it'll work just as you'd expect (allowing the parent path but blocking the child path). If this array is empty or this property is not defined, nothing is blocked. `block` takes precedence over `allow`. This means that if the same path is both blocked and allowed, it will be considered a block and the Insulation check will fail if imports occur from it.
+-   **`exclude`:** is an optional property that can be used to ignore any sub-directory names contained within any of the `dirPaths`, full paths, or regex strings. This automatically includes `node_modules` and `bower_components` so that they are both ignored.
+-   **`checkDirectory`:** an optional property that must be a string which is used to determine which directory to check imports in. This overrides any value passed to `directoryToCheck` in the CLI.
 
--   **`excludes`:** is an optional property that can be used to ignore any sub-directory names contained within any of the `dirPaths`, full paths, or regex strings. This automatically includes `node_modules` and `bower_components` so that they are both ignored.
-
-Both `allow` and `block` paths are relative to `directoryToCheck` passed into the cli command.
+Both `allow`, `block`, and `exclude` paths are relative to the directory that is being checked`directoryToCheck` passed into the cli command.
 
 ## Simple example:
 
@@ -65,9 +65,11 @@ Both `allow` and `block` paths are relative to `directoryToCheck` passed into th
 }
 ```
 
-## Real life example config file
+## Real life example Insulation file
 
 In the following example, folders `back-end` and `front-end` are allowed to import from `common` but not from each other (or anything else for that matter). Also note that because `common`'s `allow` property is an empty array, it is not allowed to import from anything.
+
+Because `checkDirectory` is also included, all these folder paths are relative to that directory, or `./src`.
 
 ```json
 {
@@ -81,6 +83,7 @@ In the following example, folders `back-end` and `front-end` are allowed to impo
         "common": {
             "allow": []
         }
-    }
+    },
+    "checkDirectory": "./src"
 }
 ```

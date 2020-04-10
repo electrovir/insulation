@@ -19,7 +19,8 @@ export type InsulationConfig = {
             block?: string[];
         };
     };
-    excludes?: string[];
+    exclude?: string[];
+    checkDirectory?: string;
 };
 
 export type InvalidDependency = {
@@ -69,20 +70,20 @@ function validateInsulationConfig(loadedConfig: InsulationConfig): asserts loade
     });
 
     if (loadedConfig.hasOwnProperty('excludes')) {
-        if (!Array.isArray(loadedConfig.excludes)) {
+        if (!Array.isArray(loadedConfig.exclude)) {
             invalidConfigError(`array required for "excludes"`);
         }
     }
 }
 
-export function readInsulationConfig(filePath: string): InsulationConfig {
+export function readInsulationConfigFile(filePath: string): InsulationConfig {
     const json = JSON.parse(readFileSync(filePath).toString());
     validateInsulationConfig(json);
     return json;
 }
 
 export function getDependencyList(parentDirPath: string, insulationConfig: InsulationConfig): IModule[] {
-    const exclude = DEFAULT_EXCLUDES.concat(insulationConfig.excludes || []).join('|');
+    const exclude = DEFAULT_EXCLUDES.concat(insulationConfig.exclude || []).join('|');
 
     const cruiseOutput = cruise(
         Object.keys(insulationConfig.imports).map(importPath => join(parentDirPath, importPath)),
@@ -99,22 +100,27 @@ export function getDependencyList(parentDirPath: string, insulationConfig: Insul
 }
 
 export async function insulate(
-    parentDirPath: string,
     insulationConfig: InsulationConfig,
+    checkDirPath: string,
     includeOriginalModuleList: true,
 ): Promise<{invalidDeps: InvalidDependency[]; modules: IModule[]}>;
 export async function insulate(
-    parentDirPath: string,
     insulationConfig: InsulationConfig,
+    checkDirPath: string,
     includeOriginalModuleList?: false | undefined,
 ): Promise<InvalidDependency[]>;
 export async function insulate(
-    parentDirPath: string,
     insulationConfig: InsulationConfig,
+    checkDirPath: string = './',
     includeOriginalModuleList?: boolean | undefined,
 ): Promise<InvalidDependency[] | {invalidDeps: InvalidDependency[]; modules: IModule[]}> {
-    const relativePath = relative(process.cwd(), parentDirPath);
     validateInsulationConfig(insulationConfig);
+
+    if (insulationConfig.checkDirectory) {
+        checkDirPath = insulationConfig.checkDirectory;
+    }
+
+    const relativePath = relative(process.cwd(), checkDirPath);
     const insulationPaths = Object.keys(insulationConfig.imports);
     if (!insulationPaths.length) {
         // no need to do anything
@@ -129,7 +135,7 @@ export async function insulate(
     }
 
     Object.keys(insulationConfig.imports)
-        .map(dir => join(parentDirPath, dir))
+        .map(dir => join(checkDirPath, dir))
         .forEach(dir => {
             if (!existsSync(dir)) {
                 invalidConfigError(`"${dir}" from Insulation config does not exist`);
@@ -139,7 +145,7 @@ export async function insulate(
             }
         });
 
-    const modules = getDependencyList(parentDirPath, insulationConfig);
+    const modules = getDependencyList(checkDirPath, insulationConfig);
     const invalidModules = modules.reduce((invalidModules: InvalidDependency[], currentModule) => {
         const insulationPath = insulationPaths.find(
             path => currentModule.source.indexOf(join(relativePath, path)) === 0,
