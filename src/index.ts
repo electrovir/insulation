@@ -1,11 +1,18 @@
 import {lstatSync, existsSync, readFileSync} from 'fs';
 import {join, relative, isAbsolute} from 'path';
-import {cruise, IModule, IDependency as Dependency} from 'dependency-cruiser';
+import {cruise, IModule, IDependency as Dependency, ICruiseOptions} from 'dependency-cruiser';
 import {getObjectTypedKeys} from './object';
 export {IDependency as Dependency} from 'dependency-cruiser';
 
 export class InvalidInsulationConfigError extends Error {
     public name = 'InvalidInsulationConfigError';
+    constructor(message: string, config?: Partial<InsulationConfig>) {
+        super(
+            `Invalid Insulation config: ${message}${
+                config && !config.silent ? `\n${JSON.stringify(config, null, 4)}` : ''
+            }`,
+        );
+    }
 }
 
 export class DependencyReadError extends Error {
@@ -19,8 +26,9 @@ export type InsulationConfig = {
             block?: string[];
         };
     };
-    exclude?: string[];
-    checkDirectory?: string;
+    checkDirectory: string;
+    options: ICruiseOptions;
+    silent: boolean;
 };
 
 export type InvalidDependency = {
@@ -44,52 +52,72 @@ export const enum InvalidDependencyReason {
 }
 
 const ALLOWED_IMPORT_KEYS = ['allow', 'block'];
-const DEFAULT_EXCLUDES = ['node_modules', 'bower_components'];
+const DEFAULT_EXCLUDE = ['node_modules', 'bower_components'];
 
-function invalidConfigError(details: string) {
-    throw new InvalidInsulationConfigError(`Invalid Insulation config: ${details}`);
-}
-
-function validateInsulationConfig(loadedConfig: InsulationConfig): asserts loadedConfig is InsulationConfig {
-    if (!loadedConfig.hasOwnProperty('imports')) {
-        invalidConfigError(`missing "imports" property`);
+function finalizeInsulationConfig(loadedConfig: Partial<InsulationConfig>): InsulationConfig {
+    const finalizedConfig = {...loadedConfig};
+    if (!finalizedConfig.imports) {
+        finalizedConfig.imports = {};
     }
 
-    getObjectTypedKeys(loadedConfig.imports).forEach(dirPath => {
-        const innerConfig = loadedConfig.imports[dirPath];
-        const innerKeys = getObjectTypedKeys(innerConfig);
+    getObjectTypedKeys(finalizedConfig.imports).forEach(dirPath => {
+        const importGroup = finalizedConfig.imports![dirPath];
+        const innerKeys = getObjectTypedKeys(importGroup);
+
+        if (typeof importGroup !== 'object') {
+            throw new InvalidInsulationConfigError(
+                `expected object type for imports['${dirPath}'] but got ${typeof importGroup}`,
+                loadedConfig,
+            );
+        } else if (Array.isArray(importGroup)) {
+            throw new InvalidInsulationConfigError(
+                `expected an object for imports['${dirPath}'] but got an array`,
+                loadedConfig,
+            );
+        }
 
         innerKeys.forEach(innerKey => {
             if (!ALLOWED_IMPORT_KEYS.includes(innerKey)) {
-                invalidConfigError(`unknown key "${innerKey}"`);
+                throw new InvalidInsulationConfigError(
+                    `unknown key "${innerKey}" in imports['${dirPath}']`,
+                    loadedConfig,
+                );
             }
-            if (!Array.isArray(loadedConfig.imports[dirPath][innerKey])) {
-                invalidConfigError(`array required for "imports.${dirPath}.${innerKey}"`);
+            if (!Array.isArray(importGroup[innerKey])) {
+                throw new InvalidInsulationConfigError(
+                    `array required for "imports.${dirPath}.${innerKey}"`,
+                    loadedConfig,
+                );
             }
         });
     });
 
-    if (loadedConfig.hasOwnProperty('excludes')) {
-        if (!Array.isArray(loadedConfig.exclude)) {
-            invalidConfigError(`array required for "excludes"`);
-        }
+    if (!finalizedConfig.checkDirectory) {
+        finalizedConfig.checkDirectory = './';
     }
+
+    if (!finalizedConfig.options) {
+        finalizedConfig.options = {};
+    }
+
+    finalizedConfig.options.exclude = `${DEFAULT_EXCLUDE.join('|')}|${finalizedConfig.options.exclude}`;
+
+    if (!finalizedConfig.silent == undefined) {
+        finalizedConfig.silent = false;
+    }
+
+    return finalizedConfig as InsulationConfig;
 }
 
 export function readInsulationConfigFile(filePath: string): InsulationConfig {
     const json = JSON.parse(readFileSync(filePath).toString());
-    validateInsulationConfig(json);
-    return json;
+    return finalizeInsulationConfig(json);
 }
 
-export function getDependencyList(parentDirPath: string, insulationConfig: InsulationConfig): IModule[] {
-    const exclude = DEFAULT_EXCLUDES.concat(insulationConfig.exclude || []).join('|');
-
+export function getDependencyList(config: Required<InsulationConfig>): IModule[] {
     const cruiseOutput = cruise(
-        Object.keys(insulationConfig.imports).map(importPath => join(parentDirPath, importPath)),
-        {
-            exclude,
-        },
+        Object.keys(config.imports).map(importPath => join(config.checkDirectory, importPath)),
+        config.options,
     ).output;
 
     if (typeof cruiseOutput === 'string') {
@@ -105,33 +133,26 @@ function isChildDir(child: string, parent: string): boolean {
 }
 
 export async function insulate(
-    insulationConfig: InsulationConfig,
-    checkDirPath: string,
+    inputConfig: Partial<InsulationConfig>,
     includeOriginalModuleList: true,
 ): Promise<{invalidDeps: InvalidDependency[]; modules: IModule[]}>;
 export async function insulate(
-    insulationConfig: InsulationConfig,
-    checkDirPath: string,
+    inputConfig: Partial<InsulationConfig>,
     includeOriginalModuleList?: false | undefined,
 ): Promise<InvalidDependency[]>;
 export async function insulate(
-    insulationConfig: InsulationConfig,
-    checkDirPath: string = './',
+    inputConfig: Partial<InsulationConfig>,
     includeOriginalModuleList?: boolean | undefined,
 ): Promise<InvalidDependency[] | {invalidDeps: InvalidDependency[]; modules: IModule[]}> {
-    validateInsulationConfig(insulationConfig);
+    const config = finalizeInsulationConfig(inputConfig);
 
-    if (insulationConfig.checkDirectory) {
-        checkDirPath = insulationConfig.checkDirectory;
-    }
-
-    const relativePath = relative(process.cwd(), checkDirPath);
+    const relativePath = relative(process.cwd(), config.checkDirectory);
 
     function makeRelative(input: string) {
         return join(relativePath, input);
     }
 
-    const insulationPaths = Object.keys(insulationConfig.imports);
+    const insulationPaths = Object.keys(config.imports);
     if (!insulationPaths.length) {
         // no need to do anything
         if (includeOriginalModuleList) {
@@ -144,25 +165,28 @@ export async function insulate(
         }
     }
 
-    Object.keys(insulationConfig.imports)
-        .map(dir => join(checkDirPath, dir))
+    Object.keys(config.imports)
+        .map(dir => makeRelative(dir))
         .forEach(dir => {
             if (!existsSync(dir)) {
-                invalidConfigError(`"${dir}" from Insulation config does not exist`);
+                throw new InvalidInsulationConfigError(`"${dir}" from Insulation config does not exist`, inputConfig);
             }
             if (!lstatSync(dir).isDirectory()) {
-                invalidConfigError(`"${dir}" from Insulation config is not a directory`);
+                throw new InvalidInsulationConfigError(
+                    `"${dir}" from Insulation config is not a directory`,
+                    inputConfig,
+                );
             }
         });
 
-    const modules = getDependencyList(checkDirPath, insulationConfig);
+    const modules = getDependencyList(config);
     const invalidModules = modules.reduce((invalidModules: InvalidDependency[], currentModule) => {
         const insulationPath = insulationPaths.find(path => isChildDir(currentModule.source, makeRelative(path)));
         if (!insulationPath) {
             // this module is not part of the config, ignore it
             return invalidModules;
         }
-        const pathConfig = insulationConfig.imports[insulationPath];
+        const pathConfig = config.imports[insulationPath];
 
         // check allowed paths
         if (pathConfig.allow) {

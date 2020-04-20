@@ -4,11 +4,12 @@
             "allow": ["b"]
         },
         "aab": {
-            "allow": ["b"]
+            "allow": ["a"]
         },
         "b": {
-            "allow": ["a"]
+            "block": ["a"]
         }
     },
-    "checkDirectory": "test/test-imports"
+    "checkDirectory": "test/test-imports",
+    "silent": true
 }

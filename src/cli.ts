@@ -2,7 +2,7 @@
 
 import * as minimist from 'minimist';
 import {insulate, InsulationConfig, InvalidDependency} from './index';
-import {join} from 'path';
+import {resolve} from 'path';
 import {readFileSync, existsSync} from 'fs';
 
 const DEFAULT_INSULATION_FILE = '.insulation.json';
@@ -11,34 +11,11 @@ export class NotInsulatedError extends Error {
     public name = 'NotInsulatedError';
 }
 
-function readConfigFile(dirToCheck: string, loud: boolean, insulationFilePath?: string): InsulationConfig {
-    const dirToCheckConfigPath = join(dirToCheck, DEFAULT_INSULATION_FILE);
-    const cwdConfigPath = join('.', DEFAULT_INSULATION_FILE);
-
-    let configPathToUse = '';
-    if (insulationFilePath && existsSync(insulationFilePath)) {
-        configPathToUse = insulationFilePath;
-    } else {
-        if (!insulationFilePath) {
-            if (loud) {
-                console.log(`No config file path given`);
-            }
-        } else if (!existsSync(insulationFilePath)) {
-            if (loud) {
-                console.log(`Given config file does not exist: "${insulationFilePath}"`);
-            }
-        }
-
-        if (existsSync(dirToCheckConfigPath)) {
-            configPathToUse = dirToCheckConfigPath;
-        } else {
-            // if this one fails, it fails on the read file step
-            configPathToUse = cwdConfigPath;
-        }
-        if (loud) {
-            console.log(`Defaulting config file to "${configPathToUse}"`);
-        }
-    }
+function readConfigFile(insulationFilePath?: string): InsulationConfig {
+    const configPathToUse =
+        insulationFilePath && existsSync(insulationFilePath)
+            ? insulationFilePath
+            : resolve('.', DEFAULT_INSULATION_FILE);
 
     return JSON.parse(readFileSync(configPathToUse).toString());
 }
@@ -73,27 +50,27 @@ function handleResults(invalidDeps: InvalidDependency[], loud: boolean) {
     }
 }
 
-async function cli(dirToCheck: string, loud: boolean, insulationFilePath?: string) {
-    const configJson = readConfigFile(dirToCheck, loud, insulationFilePath);
-
-    const {invalidDeps} = await insulate(configJson, dirToCheck, true);
-
-    return handleResults(invalidDeps, loud);
+async function cli(insulationFilePath?: string) {
+    const configJson = readConfigFile(insulationFilePath);
+    try {
+        const {invalidDeps} = await insulate(configJson, true);
+        return handleResults(invalidDeps, !configJson.silent);
+    } catch (error) {
+        if (!configJson.silent) {
+            console.error(error);
+        }
+        throw error;
+    }
 }
 
 function main() {
     const args = minimist(process.argv.slice(2));
 
-    const dirToCheck = (typeof args.d === 'string' && args.d) || './';
     const insulationFilePath = (typeof args.f === 'string' && args.f) || undefined;
-    const loud = !args.s;
 
-    cli(dirToCheck, loud, insulationFilePath)
+    cli(insulationFilePath)
         .then(() => process.exit(0))
         .catch(error => {
-            if (error && loud) {
-                console.error(error);
-            }
             process.exit(1);
         });
 }

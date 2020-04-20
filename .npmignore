@@ -3,3 +3,5 @@ dist/test
 src
 test
 tsconfig.json
+.github
+.insulation.json

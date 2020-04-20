@@ -1,6 +1,6 @@
 {
     "name": "insulation",
-    "version": "2.2.0",
+    "version": "3.0.0",
     "description": "Prevent unwanted imports between TS or JS folders",
     "license": "MIT",
     "repository": {

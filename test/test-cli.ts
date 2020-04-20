@@ -1,5 +1,6 @@
 import {exec} from 'child_process';
-import {handleTests, TestResult} from './test';
+import {handleTests, TestResult, testImportsDir} from './test';
+import {join} from 'path';
 
 type CliResult = {
     stdout: string;
@@ -18,23 +19,24 @@ const tests: CliTest[] = [
     {name: 'use default config', configPath: '', expectedInError: 'NotInsulatedError: Imports not insulated'},
     {
         name: 'invalid configuration',
-        configPath: 'test/test-imports/.insulation-invalid.json',
+        configPath: join(testImportsDir, '.insulation-invalid.json'),
         expectedInError: 'InvalidInsulationConfigError: ',
     },
     {
         name: 'no errors',
-        configPath: 'test/test-imports/.insulation-allow.json',
+        configPath: join(testImportsDir, '.insulation-allow.json'),
+    },
+    {
+        name: 'change check directory',
+        configPath: join(testImportsDir, '.insulation-check-dir.json'),
     },
 ];
 
-async function testCli(configPath: string, extraArgs = ''): Promise<CliResult> {
+async function testCli(configPath: String): Promise<CliResult> {
     return new Promise<CliResult>(resolve => {
-        exec(
-            `node -r ts-node/register ./src/cli.ts -d ./test/test-imports -f ${configPath} ${extraArgs}`,
-            (error, stdout, stderr) => {
-                resolve({stdout, stderr, error});
-            },
-        );
+        exec(`node -r ts-node/register ./src/cli.ts -f ${configPath}`, (error, stdout, stderr) => {
+            resolve({stdout, stderr, error});
+        });
     });
 }
 
@@ -67,10 +69,10 @@ async function runAllCliTests() {
         failureDetail: result.output.stderr,
     }));
 
-    const silentTest = await testCli('', '-s');
+    const silentTest = await testCli(join(testImportsDir, '.insulation-silent.json'));
     const silentTestPassed = !silentTest.stderr && !silentTest.stdout;
     allResults.push({
-        testName: 'silent flag prevents output',
+        testName: 'silent property prevents output',
         passed: silentTestPassed,
         failureDetail: `stderr:\n\t${silentTest.stderr}\nstdout:\n\t${silentTest.stdout}`,
     });

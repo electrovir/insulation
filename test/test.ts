@@ -1,4 +1,7 @@
 import * as styles from 'ansi-styles';
+import {join} from 'path';
+
+export const testImportsDir = join(__dirname, 'test-imports');
 
 export type TestResult = {
     passed: boolean;
