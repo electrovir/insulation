@@ -1,7 +1,7 @@
 {
     "name": "insulation",
-    "version": "3.0.0",
-    "description": "Prevent unwanted imports between TS or JS folders",
+    "version": "3.0.1",
+    "description": "Lightweight package to prevent unwanted imports between TS or JS folders.",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -15,14 +15,24 @@
         "name": "electrovir"
     },
     "keywords": [
+        "block",
+        "directories",
+        "directory",
+        "folder",
+        "folders",
+        "import",
+        "importing",
+        "imports",
         "insulation",
         "isolation",
+        "javascript",
+        "partition",
+        "partitioning",
+        "prevent",
         "projects",
-        "folders",
+        "restrict",
         "typescript",
-        "imports",
-        "unwanted imports",
-        "restrict imports"
+        "unwanted"
     ],
     "bin": {
         "insulate": "dist/src/cli.js"

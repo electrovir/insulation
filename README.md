@@ -1,26 +1,26 @@
 # Insulation
 
-Prevent unwanted imports between TS or JS folders.
+Lightweight package to prevent unwanted imports between TS or JS folders.
 
 # Usage
 
 ```sh
-insulate [-d directoryToCheck] [-f pathToInsulationFile] [-s]
+insulate [-f pathToInsulationFile]
 ```
-
--   `-d directoryToCheck`: optional, path to the directory which contains the folders to check. Only paths that are explicitly declared in the Insulation file are checked. This defaults to the current directory and can be overridden by the Insulation file as described in the [Insulation File](#insulation-file) section below.
 -   `-f pathToInsulationFile`: optional, the file which defines the allowed dependencies. This defaults to `.insulation.json` within the passed -d directory. See the [Insulation File](#insulation-file) section below for more details on formatting.
--   `-s`: silent, optional, makes the script silent so it doesn't log anything. Read script exit values to determine success.
 
 Example:
 
 ```sh
-insulate -d ./src
+# defaults to reading ./.insulation.json
+insulate
+
+insulate -f src/.insulation.json
 ```
 
 A useful place to run this command would be in a pre-commit, pre-push, pre-merge, or pre-publish hook that runs tests or linters, etc.
 
-See the [test dir](https://github.com/electrovir/insulation/tree/master/test/test-imports) in the github repo for a couple example usages.
+See the [test dir in the github repo](https://github.com/electrovir/insulation/tree/master/test/test-imports) for a couple example usages.
 
 # Insulation file
 
@@ -30,23 +30,24 @@ The Insulation file must be a JSON file. The structure follows that specified be
 
 ```typescript
 {
-    imports: {
+    imports?: {
         [dirPath: string]: {
             allow?: string[];
             block?: string[];
         };
     };
-    exclude?: string[];
     checkDirectory?: string;
+    options?: Options;
+    silent?: boolean;
 };
 ```
 
 -   **`allow`:** is a list of paths that the given `dirPath` can import from. If this is an empty array, `dirPath` isn't allowed to import from anything except itself. If this property is not defined, every import is allowed unless blocked by the `block` property.
 -   **`block`:** is a list of paths to explicitly block the given `dirPath` from importing. Any of these paths can be a child of an allowed path and it'll work just as you'd expect (allowing the parent path but blocking the child path). If this array is empty or this property is not defined, nothing is blocked. `block` takes precedence over `allow`. This means that if the same path is both blocked and allowed, it will be considered a block and the Insulation check will fail if imports occur from it.
--   **`exclude`:** is an optional property that can be used to ignore any sub-directory names contained within any of the `dirPaths`, full paths, or regex strings. This automatically includes `node_modules` and `bower_components` so that they are both ignored.
--   **`checkDirectory`:** an optional property that must be a string which is used to determine which directory to check imports in. This overrides any value passed to `directoryToCheck` in the CLI.
+-   **`checkDirectory`:** is a path to the directory which contains the folders to check. Only paths that are explicitly declared in the Insulation file are checked. This defaults to the current directory.
+-  **`options`:** are a list of options to be passed directly into the [`dependency-cruiser` package](https://github.com/sverweij/dependency-cruiser), which this uses. [See that package's README for documentation on options.](https://github.com/sverweij/dependency-cruiser/blob/develop/doc/rules-reference.md#the-options)
 
-Both `allow`, `block`, and `exclude` paths are relative to the directory that is being checked`directoryToCheck` passed into the cli command.
+Both `allow` and `block` paths are relative to the directory that is being checked, `checkDirectory`.
 
 ## Simple example:
 

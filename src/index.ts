@@ -1,8 +1,8 @@
 import {lstatSync, existsSync, readFileSync} from 'fs';
 import {join, relative, isAbsolute} from 'path';
-import {cruise, IModule, IDependency as Dependency, ICruiseOptions} from 'dependency-cruiser';
+import {cruise, IModule, IDependency as Dependency, ICruiseOptions as Options} from 'dependency-cruiser';
 import {getObjectTypedKeys} from './object';
-export {IDependency as Dependency} from 'dependency-cruiser';
+export {IDependency as Dependency, ICruiseOptions as Options} from 'dependency-cruiser';
 
 export class InvalidInsulationConfigError extends Error {
     public name = 'InvalidInsulationConfigError';
@@ -27,7 +27,7 @@ export type InsulationConfig = {
         };
     };
     checkDirectory: string;
-    options: ICruiseOptions;
+    options: Options;
     silent: boolean;
 };
 
