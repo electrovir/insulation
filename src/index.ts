@@ -1,8 +1,13 @@
-import {lstatSync, existsSync, readFileSync} from 'fs';
-import {join, relative, isAbsolute} from 'path';
-import {cruise, IModule, IDependency as Dependency, ICruiseOptions as Options} from 'dependency-cruiser';
+import {
+    cruise,
+    ICruiseOptions as Options,
+    IDependency as Dependency,
+    IModule,
+} from 'dependency-cruiser';
+import {existsSync, lstatSync, readFileSync} from 'fs';
+import {isAbsolute, join, relative} from 'path';
 import {getObjectTypedKeys} from './object';
-export {IDependency as Dependency, ICruiseOptions as Options} from 'dependency-cruiser';
+export {ICruiseOptions as Options, IDependency as Dependency} from 'dependency-cruiser';
 
 export class InvalidInsulationConfigError extends Error {
     public name = 'InvalidInsulationConfigError';
@@ -37,17 +42,11 @@ export type InvalidDependency = {
     importedBy: string;
 };
 
-/**
- * An enumeration of the possible reasons why a dependency could be considered invalid.
- */
+/** An enumeration of the possible reasons why a dependency could be considered invalid. */
 export const enum InvalidDependencyReason {
-    /**
-     * This dependency was explicitly blocked by the insulation config
-     */
+    /** This dependency was explicitly blocked by the insulation config */
     BLOCKED = 'blocked',
-    /**
-     * This dependency was not in an un-empty allowed import list of the insulation config
-     */
+    /** This dependency was not in an un-empty allowed import list of the insulation config */
     NOT_ALLOWED = 'not-allowed',
 }
 
@@ -60,7 +59,7 @@ function finalizeInsulationConfig(loadedConfig: Partial<InsulationConfig>): Insu
         finalizedConfig.imports = {};
     }
 
-    getObjectTypedKeys(finalizedConfig.imports).forEach(dirPath => {
+    getObjectTypedKeys(finalizedConfig.imports).forEach((dirPath) => {
         const importGroup = finalizedConfig.imports![dirPath];
         const innerKeys = getObjectTypedKeys(importGroup);
 
@@ -76,7 +75,7 @@ function finalizeInsulationConfig(loadedConfig: Partial<InsulationConfig>): Insu
             );
         }
 
-        innerKeys.forEach(innerKey => {
+        innerKeys.forEach((innerKey) => {
             if (!ALLOWED_IMPORT_KEYS.includes(innerKey)) {
                 throw new InvalidInsulationConfigError(
                     `unknown key "${innerKey}" in imports['${dirPath}']`,
@@ -100,7 +99,9 @@ function finalizeInsulationConfig(loadedConfig: Partial<InsulationConfig>): Insu
         finalizedConfig.options = {};
     }
 
-    finalizedConfig.options.exclude = `${DEFAULT_EXCLUDE.join('|')}|${finalizedConfig.options.exclude}`;
+    finalizedConfig.options.exclude = `${DEFAULT_EXCLUDE.join('|')}|${
+        finalizedConfig.options.exclude
+    }`;
 
     if (!finalizedConfig.silent == undefined) {
         finalizedConfig.silent = false;
@@ -116,7 +117,7 @@ export function readInsulationConfigFile(filePath: string): InsulationConfig {
 
 export function getDependencyList(config: Required<InsulationConfig>): IModule[] {
     const cruiseOutput = cruise(
-        Object.keys(config.imports).map(importPath => join(config.checkDirectory, importPath)),
+        Object.keys(config.imports).map((importPath) => join(config.checkDirectory, importPath)),
         config.options,
     ).output;
 
@@ -166,10 +167,13 @@ export async function insulate(
     }
 
     Object.keys(config.imports)
-        .map(dir => makeRelative(dir))
-        .forEach(dir => {
+        .map((dir) => makeRelative(dir))
+        .forEach((dir) => {
             if (!existsSync(dir)) {
-                throw new InvalidInsulationConfigError(`"${dir}" from Insulation config does not exist`, inputConfig);
+                throw new InvalidInsulationConfigError(
+                    `"${dir}" from Insulation config does not exist`,
+                    inputConfig,
+                );
             }
             if (!lstatSync(dir).isDirectory()) {
                 throw new InvalidInsulationConfigError(
@@ -181,7 +185,9 @@ export async function insulate(
 
     const modules = getDependencyList(config);
     const invalidModules = modules.reduce((invalidModules: InvalidDependency[], currentModule) => {
-        const insulationPath = insulationPaths.find(path => isChildDir(currentModule.source, makeRelative(path)));
+        const insulationPath = insulationPaths.find((path) =>
+            isChildDir(currentModule.source, makeRelative(path)),
+        );
         if (!insulationPath) {
             // this module is not part of the config, ignore it
             return invalidModules;
@@ -191,7 +197,7 @@ export async function insulate(
         // check allowed paths
         if (pathConfig.allow) {
             const notAllowedImports = currentModule.dependencies
-                .filter(dependency => {
+                .filter((dependency) => {
                     // dependency is in the current module's dir, this is always allowed
                     if (isChildDir(dependency.resolved, makeRelative(insulationPath))) {
                         return false;
@@ -202,13 +208,13 @@ export async function insulate(
                         return false;
                     }
 
-                    const foundAllowedImport = pathConfig.allow?.find(allowedPath => {
+                    const foundAllowedImport = pathConfig.allow?.find((allowedPath) => {
                         return isChildDir(dependency.resolved, makeRelative(allowedPath));
                     });
 
                     return !foundAllowedImport;
                 })
-                .map(dependency => ({
+                .map((dependency) => ({
                     dependency,
                     reason: InvalidDependencyReason.NOT_ALLOWED,
                     importedBy: currentModule.source,
@@ -219,17 +225,17 @@ export async function insulate(
         // check blocked paths
         if (pathConfig.block) {
             const blockedImports = currentModule.dependencies
-                .filter(dependency => {
+                .filter((dependency) => {
                     // allow imports from core modules
                     if (dependency.coreModule) {
                         return false;
                     }
 
-                    return pathConfig.block?.find(blockedPath => {
+                    return pathConfig.block?.find((blockedPath) => {
                         return isChildDir(dependency.resolved, makeRelative(blockedPath));
                     });
                 })
-                .map(dependency => ({
+                .map((dependency) => ({
                     dependency,
                     reason: InvalidDependencyReason.BLOCKED,
                     importedBy: currentModule.source,

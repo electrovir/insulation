@@ -7,6 +7,7 @@ Lightweight package to prevent unwanted imports between TS or JS folders.
 ```sh
 insulate [-f pathToInsulationFile]
 ```
+
 -   `-f pathToInsulationFile`: optional, the file which defines the allowed dependencies. This defaults to `.insulation.json` within the passed -d directory. See the [Insulation File](#insulation-file) section below for more details on formatting.
 
 Example:
@@ -45,7 +46,7 @@ The Insulation file must be a JSON file. The structure follows that specified be
 -   **`allow`:** is a list of paths that the given `dirPath` can import from. If this is an empty array, `dirPath` isn't allowed to import from anything except itself. If this property is not defined, every import is allowed unless blocked by the `block` property.
 -   **`block`:** is a list of paths to explicitly block the given `dirPath` from importing. Any of these paths can be a child of an allowed path and it'll work just as you'd expect (allowing the parent path but blocking the child path). If this array is empty or this property is not defined, nothing is blocked. `block` takes precedence over `allow`. This means that if the same path is both blocked and allowed, it will be considered a block and the Insulation check will fail if imports occur from it.
 -   **`checkDirectory`:** is a path to the directory which contains the folders to check. Only paths that are explicitly declared in the Insulation file are checked. This defaults to the current directory.
--  **`options`:** are a list of options to be passed directly into the [`dependency-cruiser` package](https://github.com/sverweij/dependency-cruiser), which this uses. [See that package's README for documentation on options.](https://github.com/sverweij/dependency-cruiser/blob/develop/doc/rules-reference.md#the-options)
+-   **`options`:** are a list of options to be passed directly into the [`dependency-cruiser` package](https://github.com/sverweij/dependency-cruiser), which this uses. [See that package's README for documentation on options.](https://github.com/sverweij/dependency-cruiser/blob/develop/doc/rules-reference.md#the-options)
 
 Both `allow` and `block` paths are relative to the directory that is being checked, `checkDirectory`.
 
@@ -74,17 +75,11 @@ Because `checkDirectory` is also included, all these folder paths are relative t
 
 ```json
 {
+    "checkDirectory": "./src",
     "imports": {
-        "back-end": {
-            "allow": ["common"]
-        },
-        "front-end": {
-            "allow": ["common"]
-        },
-        "common": {
-            "allow": []
-        }
-    },
-    "checkDirectory": "./src"
+        "back-end": {"allow": ["common"]},
+        "common": {"allow": []},
+        "front-end": {"allow": ["common"]}
+    }
 }
 ```

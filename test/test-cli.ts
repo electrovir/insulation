@@ -1,6 +1,6 @@
 import {exec} from 'child_process';
-import {handleTests, TestResult, testImportsDir} from './test';
 import {join} from 'path';
+import {handleTests, testImportsDir, TestResult} from './test';
 
 type CliResult = {
     stdout: string;
@@ -16,7 +16,11 @@ type CliTest = {
 };
 
 const tests: CliTest[] = [
-    {name: 'use default config', configPath: '', expectedInError: 'NotInsulatedError: Imports not insulated'},
+    {
+        name: 'use default config',
+        configPath: '',
+        expectedInError: 'NotInsulatedError: Imports not insulated',
+    },
     {
         name: 'invalid configuration',
         configPath: join(testImportsDir, '.insulation-invalid.json'),
@@ -33,7 +37,7 @@ const tests: CliTest[] = [
 ];
 
 async function testCli(configPath: String): Promise<CliResult> {
-    return new Promise<CliResult>(resolve => {
+    return new Promise<CliResult>((resolve) => {
         exec(`node -r ts-node/register ./src/cli.ts -f ${configPath}`, (error, stdout, stderr) => {
             resolve({stdout, stderr, error});
         });
@@ -61,7 +65,7 @@ async function runTest(test: CliTest): Promise<{output: CliResult; passed: boole
 }
 
 async function runAllCliTests() {
-    const results = await Promise.all(tests.map(async test => runTest(test)));
+    const results = await Promise.all(tests.map(async (test) => runTest(test)));
 
     const allResults: TestResult[] = results.map((result, index) => ({
         testName: tests[index].name,
@@ -85,4 +89,4 @@ async function main() {
     handleTests(allResults, 'cli');
 }
 
-main().catch(error => console.error(error));
+main().catch((error) => console.error(error));

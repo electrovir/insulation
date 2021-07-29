@@ -2,18 +2,6 @@
     "name": "insulation",
     "version": "3.0.1",
     "description": "Lightweight package to prevent unwanted imports between TS or JS folders.",
-    "license": "MIT",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/electrovir/insulation"
-    },
-    "bugs": {
-        "url": "https://github.com/electrovir/insulation/issues"
-    },
-    "homepage": "https://github.com/electrovir/insulation",
-    "author": {
-        "name": "electrovir"
-    },
     "keywords": [
         "block",
         "directories",
@@ -34,29 +22,44 @@
         "typescript",
         "unwanted"
     ],
+    "homepage": "https://github.com/electrovir/insulation",
+    "bugs": {
+        "url": "https://github.com/electrovir/insulation/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/electrovir/insulation"
+    },
+    "license": "MIT",
+    "author": {
+        "name": "electrovir"
+    },
+    "main": "dist/src/index.js",
+    "typings": "dist/src/index.d.ts",
     "bin": {
         "insulate": "dist/src/cli.js"
     },
-    "main": "dist/src/index.js",
     "scripts": {
-        "check-format": "prettier --check './{,!(dist)/**/}*.+(ts|json|html)'",
         "debug:api": "node --inspect-brk -r ts-node/register test/test-api.ts",
-        "format": "prettier --write './{,!(dist)/**/}*.+(ts|json|html)'",
-        "prepublishOnly": "npm install && npm run check-format && npm test && rm -rf dist && tsc && chmod +x dist/src/cli.js",
-        "test": "bash ./test/run-all-tests.sh",
+        "format:base": "prettier --ignore-path .gitignore \"./{,!(dist)/**/}*.+(ts|json|html|css|md)\"",
+        "format:check": "npm run format:base -- --check",
+        "format": "npm run format:base -- --write",
+        "prepublishOnly": "npm install && npm run format:check && npm test && rm -rf dist && tsc && chmod +x dist/src/cli.js",
         "test:api": "ts-node test/test-api.ts",
-        "test:cli": "ts-node test/test-cli.ts"
+        "test:cli": "ts-node test/test-cli.ts",
+        "test": "bash ./test/run-all-tests.sh"
     },
-    "typings": "dist/src/index.d.ts",
     "dependencies": {
-        "dependency-cruiser": "8.2.0",
-        "minimist": "1.2.5"
+        "dependency-cruiser": "10.0.6"
     },
     "devDependencies": {
-        "@types/minimist": "1.2.0",
-        "@types/node": "13.11.1",
-        "ansi-styles": "4.2.1",
-        "ts-node": "8.8.2",
-        "typescript": "3.8.3"
+        "@types/node": "16.4.7",
+        "prettier": "^2.3.2",
+        "prettier-plugin-jsdoc": "^0.3.23",
+        "prettier-plugin-organize-imports": "^2.3.3",
+        "prettier-plugin-packagejson": "^2.2.11",
+        "prettier-plugin-sort-json": "^0.0.2",
+        "test-vir": "^0.2.1",
+        "typescript": "4.3.5"
     }
 }

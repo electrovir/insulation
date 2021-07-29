@@ -1,8 +1,12 @@
-import {insulate, InvalidDependencyReason, InsulationConfig} from '../src';
 import {join} from 'path';
-import {TestResult, handleTests, testImportsDir} from './test';
+import {insulate, InsulationConfig, InvalidDependencyReason} from '../src';
+import {handleTests, testImportsDir, TestResult} from './test';
 
-const tests: {name: string; config: Partial<InsulationConfig>; expectedInvalidImports: InvalidDependencyReason[]}[] = [
+const tests: {
+    name: string;
+    config: Partial<InsulationConfig>;
+    expectedInvalidImports: InvalidDependencyReason[];
+}[] = [
     {
         name: 'no imports defined',
         config: {checkDirectory: testImportsDir, imports: {}},
@@ -64,11 +68,13 @@ const tests: {name: string; config: Partial<InsulationConfig>; expectedInvalidIm
 
 async function runApiTests(): Promise<TestResult[]> {
     const results = await Promise.all(
-        tests.map(async test => {
+        tests.map(async (test) => {
             const result = await insulate(test.config);
             const passed =
                 result.length === test.expectedInvalidImports.length &&
-                !result.some((result, index) => result.reason !== test.expectedInvalidImports[index]);
+                !result.some(
+                    (result, index) => result.reason !== test.expectedInvalidImports[index],
+                );
             return {
                 testName: test.name,
                 passed,
@@ -78,13 +84,25 @@ async function runApiTests(): Promise<TestResult[]> {
     );
 
     // test reaction to config with path that doesn't exist
-    const pathNoExistConfig = {silent: true, checkDirectory: testImportsDir, imports: {q: {block: ['a']}}};
+    const pathNoExistConfig = {
+        silent: true,
+        checkDirectory: testImportsDir,
+        imports: {q: {block: ['a']}},
+    };
     const pathNoExistTestName = "config path doesn't exist";
     try {
         await insulate(pathNoExistConfig);
-        results.push({testName: pathNoExistTestName, passed: false, failureDetail: "api call didn't throw an error"});
+        results.push({
+            testName: pathNoExistTestName,
+            passed: false,
+            failureDetail: "api call didn't throw an error",
+        });
     } catch (error) {
-        results.push({testName: pathNoExistTestName, passed: true, failureDetail: "api call didn't throw an error"});
+        results.push({
+            testName: pathNoExistTestName,
+            passed: true,
+            failureDetail: "api call didn't throw an error",
+        });
     }
 
     results.push();
@@ -97,7 +115,7 @@ async function main() {
 }
 
 if (!module.parent) {
-    main().catch(error => {
+    main().catch((error) => {
         console.error(error);
         process.exit(1);
     });

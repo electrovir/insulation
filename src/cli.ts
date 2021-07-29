@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
-import * as minimist from 'minimist';
-import {insulate, InsulationConfig, InvalidDependency} from './index';
+import {existsSync, readFileSync} from 'fs';
 import {resolve} from 'path';
-import {readFileSync, existsSync} from 'fs';
+import {insulate, InsulationConfig, InvalidDependency} from './index';
 
 const DEFAULT_INSULATION_FILE = '.insulation.json';
 
@@ -34,9 +33,9 @@ function handleResults(invalidDeps: InvalidDependency[], loud: boolean) {
                 {},
             );
 
-            Object.keys(badImportsMapped).forEach(moduleName => {
+            Object.keys(badImportsMapped).forEach((moduleName) => {
                 console.error(`${moduleName} incorrectly imports:`);
-                badImportsMapped[moduleName].forEach(badDependency =>
+                badImportsMapped[moduleName].forEach((badDependency) =>
                     console.error(`\t${badDependency.dependency.resolved}`),
                 );
             });
@@ -64,13 +63,15 @@ async function cli(insulationFilePath?: string) {
 }
 
 function main() {
-    const args = minimist(process.argv.slice(2));
+    const args = process.argv.slice(2);
 
-    const insulationFilePath = (typeof args.f === 'string' && args.f) || undefined;
+    const indexOfFileFlag = args.indexOf('-f');
+    const insulationFilePath = indexOfFileFlag > -1 ? args[indexOfFileFlag + 1] : undefined;
 
     cli(insulationFilePath)
         .then(() => process.exit(0))
-        .catch(error => {
+        .catch((error) => {
+            console.error(error);
             process.exit(1);
         });
 }
