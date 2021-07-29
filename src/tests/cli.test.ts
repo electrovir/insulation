@@ -46,6 +46,10 @@ testGroup((runTest) => {
                 } else if (!test.expectedInError && !result.error) {
                     passed = true;
                 }
+
+                if (!passed) {
+                    console.log(result);
+                }
                 return passed;
             },
         });

@@ -26,6 +26,10 @@ export function readInsulationConfigFile(filePath: string): InsulationConfig {
     return finalizeInsulationConfig(json);
 }
 
+function fixPaths(config: InsulationConfig): InsulationConfig {
+    return config;
+}
+
 export function finalizeInsulationConfig(
     loadedConfig: Partial<InsulationConfig>,
 ): InsulationConfig {
@@ -78,9 +82,11 @@ export function finalizeInsulationConfig(
         finalizedConfig.options.exclude
     }`;
 
-    if (!finalizedConfig.silent == undefined) {
+    if (finalizedConfig.silent) {
+        finalizedConfig.silent = true;
+    } else {
         finalizedConfig.silent = false;
     }
 
-    return finalizedConfig as InsulationConfig;
+    return fixPaths(finalizedConfig as InsulationConfig);
 }
