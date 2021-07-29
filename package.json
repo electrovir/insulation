@@ -1,6 +1,6 @@
 {
     "name": "insulation",
-    "version": "3.0.1",
+    "version": "4.0.0",
     "description": "Lightweight package to prevent unwanted imports between TS or JS folders.",
     "keywords": [
         "block",
@@ -41,7 +41,6 @@
     },
     "scripts": {
         "compile": "rm -rf dist && tsc",
-        "debug:api": "node --inspect-brk -r ts-node/register test/test-api.ts",
         "format:base": "prettier --ignore-path .gitignore \"./{,!(dist)/**/}*.+(ts|json|html|css)\"",
         "format:check": "npm run format:base -- --check",
         "format": "npm run format:base -- --write",
