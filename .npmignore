@@ -1,7 +1,10 @@
-.prettierrc.json
-dist/test
-src
-test
-tsconfig.json
+.cspell.json
 .github
 .insulation.json
+.prettierrc.json
+.vscode
+dist/tests
+prettierignore
+src
+test-imports
+tsconfig.json

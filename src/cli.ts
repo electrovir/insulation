@@ -2,19 +2,16 @@
 
 import {existsSync, readFileSync} from 'fs';
 import {resolve} from 'path';
-import {insulate, InsulationConfig, InvalidDependency} from './index';
-
-const DEFAULT_INSULATION_FILE = '.insulation.json';
-
-export class NotInsulatedError extends Error {
-    public name = 'NotInsulatedError';
-}
+import {defaultInsulationFile, InsulationConfig} from './config';
+import {InvalidDependency} from './dependencies';
+import {NotInsulatedError} from './errors/not-insulated-error';
+import {insulate} from './insulate';
 
 function readConfigFile(insulationFilePath?: string): InsulationConfig {
     const configPathToUse =
         insulationFilePath && existsSync(insulationFilePath)
             ? insulationFilePath
-            : resolve('.', DEFAULT_INSULATION_FILE);
+            : resolve('.', defaultInsulationFile);
 
     return JSON.parse(readFileSync(configPathToUse).toString());
 }
@@ -70,8 +67,7 @@ function main() {
 
     cli(insulationFilePath)
         .then(() => process.exit(0))
-        .catch((error) => {
-            console.error(error);
+        .catch(() => {
             process.exit(1);
         });
 }
