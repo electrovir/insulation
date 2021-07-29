@@ -1,4 +1,5 @@
 .cspell.json
+.gitattributes
 .github
 .insulation.json
 .prettierrc.json

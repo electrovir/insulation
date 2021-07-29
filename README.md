@@ -1,6 +1,14 @@
 # Insulation
 
+[![tests](https://github.com/electrovir/insulation/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/electrovir/insulation/actions/workflows/tests.yml)
+
 Lightweight package to prevent unwanted imports between TS or JS folders.
+
+# Install
+
+```sh
+npm i -D insulation
+```
 
 # Usage
 
@@ -79,7 +87,9 @@ Because `checkDirectory` is also included, all these folder paths are relative t
     "imports": {
         "back-end": {"allow": ["common"]},
         "common": {"allow": []},
-        "front-end": {"allow": ["common"]}
+        "front-end": {
+            "allow": ["common"]
+        }
     }
 }
 ```
