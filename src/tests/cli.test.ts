@@ -38,7 +38,9 @@ testGroup((runTest) => {
             expect: true,
             forceOnly: test.forceOnly,
             test: async () => {
-                const result = await runBashCommand(`node ./dist/cli.js -f ${test.configPath}`);
+                const result = await runBashCommand(
+                    `node ./dist/cli.js -f ${test.configPath.replace(/\\/g, '\\\\\\\\')}`,
+                );
                 let passed = false;
 
                 if (test.expectedInError && result.stderr.includes(test.expectedInError)) {

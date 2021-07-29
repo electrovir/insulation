@@ -9,6 +9,7 @@ import {
     isChildDir,
 } from './dependencies';
 import {InvalidInsulationConfigError} from './errors/invalid-insulation-config-error';
+import {posixToWin} from './string';
 
 export async function insulate(
     inputConfig: Partial<InsulationConfig>,
@@ -62,9 +63,10 @@ export async function insulate(
 
     const modules = getDependencyList(config);
     const invalidModules = modules.reduce((invalidModules: InvalidDependency[], currentModule) => {
-        const insulationPath = insulationPaths.find((path) =>
-            isChildDir(currentModule.source, makeRelative(path)),
-        );
+        const modulePath = posixToWin(currentModule.source);
+        const insulationPath = insulationPaths.find((path) => {
+            return isChildDir(modulePath, makeRelative(path));
+        });
         if (!insulationPath) {
             // this module is not part of the config, ignore it
             return invalidModules;
@@ -94,7 +96,7 @@ export async function insulate(
                 .map((dependency) => ({
                     dependency,
                     reason: InvalidDependencyReason.NotAllowed,
-                    importedBy: currentModule.source,
+                    importedBy: modulePath,
                 }));
             invalidModules.push(...notAllowedImports);
         }
@@ -115,10 +117,11 @@ export async function insulate(
                 .map((dependency) => ({
                     dependency,
                     reason: InvalidDependencyReason.Blocked,
-                    importedBy: currentModule.source,
+                    importedBy: modulePath,
                 }));
             invalidModules.push(...blockedImports);
         }
+
         return invalidModules;
     }, []);
 

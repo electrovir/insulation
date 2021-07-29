@@ -1,7 +1,9 @@
 import {ICruiseOptions as Options} from 'dependency-cruiser';
-import {readFileSync} from 'fs';
+import {existsSync, readFileSync} from 'fs';
+import {resolve} from 'path';
 import {InvalidInsulationConfigError} from './errors/invalid-insulation-config-error';
 import {getObjectTypedKeys} from './object';
+import {posixToWin} from './string';
 export {ICruiseOptions as Options} from 'dependency-cruiser';
 
 export type InsulationConfig = {
@@ -16,18 +18,27 @@ export type InsulationConfig = {
     silent: boolean;
 };
 
-export const allowedImportKeys = ['allow', 'block'] as const;
-export const defaultExcludes = ['node_modules', 'bower_components'] as const;
+const allowedImportKeys = ['allow', 'block'] as const;
+const defaultExcludes = ['node_modules', 'bower_components'] as const;
 
-export const defaultInsulationFile = '.insulation.json' as const;
+const defaultInsulationFile = '.insulation.json' as const;
 
-export function readInsulationConfigFile(filePath: string): InsulationConfig {
-    const json = JSON.parse(readFileSync(filePath).toString());
-    return finalizeInsulationConfig(json);
+export function readConfigFile(insulationFilePath?: string): InsulationConfig {
+    const configPathToUse =
+        insulationFilePath && existsSync(insulationFilePath)
+            ? insulationFilePath
+            : resolve('.', defaultInsulationFile);
+
+    const json = JSON.parse(readFileSync(configPathToUse).toString());
+    return json;
 }
 
 function fixPaths(config: InsulationConfig): InsulationConfig {
-    return config;
+    const fixedDir = posixToWin(config.checkDirectory);
+    return {
+        ...config,
+        checkDirectory: fixedDir,
+    };
 }
 
 export function finalizeInsulationConfig(

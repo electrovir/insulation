@@ -1,20 +1,9 @@
 #!/usr/bin/env node
 
-import {existsSync, readFileSync} from 'fs';
-import {resolve} from 'path';
-import {defaultInsulationFile, InsulationConfig} from './config';
+import {readConfigFile} from '.';
 import {InvalidDependency} from './dependencies';
 import {NotInsulatedError} from './errors/not-insulated-error';
 import {insulate} from './insulate';
-
-function readConfigFile(insulationFilePath?: string): InsulationConfig {
-    const configPathToUse =
-        insulationFilePath && existsSync(insulationFilePath)
-            ? insulationFilePath
-            : resolve('.', defaultInsulationFile);
-
-    return JSON.parse(readFileSync(configPathToUse).toString());
-}
 
 function handleResults(invalidDeps: InvalidDependency[], loud: boolean) {
     if (invalidDeps.length > 0) {
