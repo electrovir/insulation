@@ -1,7 +1,5 @@
 # Insulation
 
-[![tests](https://github.com/electrovir/insulation/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/electrovir/insulation/actions/workflows/tests.yml)
-
 Lightweight package to prevent unwanted imports between TS or JS folders.
 
 # Install
