@@ -1,9 +1,10 @@
+import {getObjectTypedKeys} from 'augment-vir';
+import {replaceWithWindowsPathIfNeeded} from 'augment-vir/dist/node-only';
 import {ICruiseOptions as Options} from 'dependency-cruiser';
 import {existsSync, readFileSync} from 'fs';
 import {resolve} from 'path';
 import {InvalidInsulationConfigError} from './errors/invalid-insulation-config-error';
-import {getObjectTypedKeys} from './object';
-import {posixToWin} from './string';
+
 export {ICruiseOptions as Options} from 'dependency-cruiser';
 
 export type InsulationConfig = {
@@ -18,8 +19,14 @@ export type InsulationConfig = {
     silent: boolean;
 };
 
-const allowedImportKeys = ['allow', 'block'] as const;
-const defaultExcludes = ['node_modules', 'bower_components'] as const;
+const allowedImportKeys = [
+    'allow',
+    'block',
+] as const;
+const defaultExcludes = [
+    'node_modules',
+    'bower_components',
+] as const;
 
 const defaultInsulationFile = '.insulation.json' as const;
 
@@ -34,7 +41,7 @@ export function readConfigFile(insulationFilePath?: string): InsulationConfig {
 }
 
 function fixPaths(config: InsulationConfig): InsulationConfig {
-    const fixedDir = posixToWin(config.checkDirectory);
+    const fixedDir = replaceWithWindowsPathIfNeeded(config.checkDirectory);
     return {
         ...config,
         checkDirectory: fixedDir,
@@ -43,6 +50,7 @@ function fixPaths(config: InsulationConfig): InsulationConfig {
 
 export function finalizeInsulationConfig(
     loadedConfig: Partial<InsulationConfig>,
+    configFilePath: string | undefined,
 ): InsulationConfig {
     const finalizedConfig = {...loadedConfig};
     if (!finalizedConfig.imports) {
@@ -56,11 +64,13 @@ export function finalizeInsulationConfig(
         if (typeof importGroup !== 'object') {
             throw new InvalidInsulationConfigError(
                 `expected object type for imports['${dirPath}'] but got ${typeof importGroup}`,
+                configFilePath,
                 loadedConfig,
             );
         } else if (Array.isArray(importGroup)) {
             throw new InvalidInsulationConfigError(
                 `expected an object for imports['${dirPath}'] but got an array`,
+                configFilePath,
                 loadedConfig,
             );
         }
@@ -69,12 +79,14 @@ export function finalizeInsulationConfig(
             if (!allowedImportKeys.includes(innerKey)) {
                 throw new InvalidInsulationConfigError(
                     `unknown key "${innerKey}" in imports['${dirPath}']`,
+                    configFilePath,
                     loadedConfig,
                 );
             }
             if (!Array.isArray(importGroup[innerKey])) {
                 throw new InvalidInsulationConfigError(
                     `array required for "imports.${dirPath}.${innerKey}"`,
+                    configFilePath,
                     loadedConfig,
                 );
             }

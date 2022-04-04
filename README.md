@@ -29,7 +29,7 @@ insulate -f src/.insulation.json
 
 A useful place to run this command would be in a pre-commit, pre-push, pre-merge, or pre-publish hook that runs tests or linters, etc.
 
-See the [test dir in the github repo](https://github.com/electrovir/insulation/tree/master/test/test-imports) for a couple example usages.
+See the [test dir in the github repo](https://github.com/electrovir/insulation/tree/master/test/test-files) for a couple example usages.
 
 # Insulation file
 
@@ -81,15 +81,15 @@ In the following example, folders `back-end` and `front-end` are allowed to impo
 
 Because `checkDirectory` is also included, all these folder paths are relative to that directory, or `./src`.
 
+<!-- (Prettier can't decide on a format for `"front-end": {"allow": ["common"]}` so it keeps changing back and forth, meaning it always fails -->
+<!-- prettier-ignore -->
 ```json
 {
     "checkDirectory": "./src",
     "imports": {
         "back-end": {"allow": ["common"]},
         "common": {"allow": []},
-        "front-end": {
-            "allow": ["common"]
-        }
+        "front-end": {"allow": ["common"]}
     }
 }
 ```

@@ -1,5 +1,5 @@
 {
-    "checkDirectory": "test-imports/a",
+    "checkDirectory": "test-files/a",
     "imports": {
         "sub-a-a": {
             "allow": []

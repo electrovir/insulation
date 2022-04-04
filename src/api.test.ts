@@ -1,7 +1,6 @@
 import {join} from 'path';
-import {testGroup} from 'test-vir';
-import {insulate, InsulationConfig, InvalidDependencyReason} from '..';
-import {testImportsDir} from './repo-paths';
+import {insulate, InsulationConfig, InvalidDependencyReason} from '.';
+import {testFilesDir} from './repo-paths';
 
 const tests: {
     description: string;
@@ -12,14 +11,14 @@ const tests: {
 }[] = [
     {
         description: 'no imports defined',
-        config: {checkDirectory: testImportsDir, imports: {}},
+        config: {checkDirectory: testFilesDir, imports: {}},
         expectedInvalidImports: [],
     },
     {description: 'does nothing', config: {}, expectedInvalidImports: []},
     {
         description: 'all imports allowed',
         config: {
-            checkDirectory: testImportsDir,
+            checkDirectory: testFilesDir,
             imports: {
                 a: {
                     allow: ['b'],
@@ -34,7 +33,7 @@ const tests: {
     {
         description: 'empty allowed imports',
         config: {
-            checkDirectory: testImportsDir,
+            checkDirectory: testFilesDir,
             imports: {
                 a: {
                     allow: ['b'],
@@ -49,7 +48,7 @@ const tests: {
     {
         description: 'blocked imports',
         config: {
-            checkDirectory: testImportsDir,
+            checkDirectory: testFilesDir,
             imports: {
                 a: {
                     allow: ['b'],
@@ -62,7 +61,7 @@ const tests: {
     {
         description: "can block without specifying the blocked path's imports",
         config: {
-            checkDirectory: testImportsDir,
+            checkDirectory: testFilesDir,
             imports: {
                 a: {block: ['b']},
             },
@@ -72,7 +71,7 @@ const tests: {
     {
         description: "can allow without specifying the allowed path's imports",
         config: {
-            checkDirectory: testImportsDir,
+            checkDirectory: testFilesDir,
             imports: {
                 a: {
                     allow: ['b'],
@@ -84,17 +83,20 @@ const tests: {
     {
         description: 'can block imports from self',
         config: {
-            checkDirectory: testImportsDir,
+            checkDirectory: testFilesDir,
             imports: {
                 a: {block: ['a']},
             },
         },
-        expectedInvalidImports: [InvalidDependencyReason.Blocked, InvalidDependencyReason.Blocked],
+        expectedInvalidImports: [
+            InvalidDependencyReason.Blocked,
+            InvalidDependencyReason.Blocked,
+        ],
     },
     {
         description: 'can block and allow the same path',
         config: {
-            checkDirectory: testImportsDir,
+            checkDirectory: testFilesDir,
             imports: {
                 a: {
                     allow: ['b'],
@@ -115,14 +117,14 @@ const tests: {
                     allow: ['sub-a-a'],
                 },
             },
-            checkDirectory: join(testImportsDir, 'a'),
+            checkDirectory: join(testFilesDir, 'a'),
         },
         expectedInvalidImports: [],
     },
     {
         description: "directories with similar names don't clash",
         config: {
-            checkDirectory: testImportsDir,
+            checkDirectory: testFilesDir,
             imports: {
                 a: {
                     allow: [],
@@ -139,18 +141,36 @@ const tests: {
     },
 ];
 
-testGroup((runTest) => {
-    tests.map(async (test) => {
-        runTest({
-            description: test.description,
-            expect: test.expectedInvalidImports,
-            forceOnly: test.forceOnly,
-            exclude: test.exclude,
-            test: async () => {
-                const invalidImports = await insulate(test.config);
+describe(__filename, () => {
+    let forcedTests = false;
+    let excludedTests = false;
 
-                return invalidImports.map((invalidImport) => invalidImport.reason);
-            },
+    tests.map(async (test) => {
+        const testFunction = test.forceOnly ? fit : test.exclude ? xit : it;
+
+        if (test.forceOnly) {
+            forcedTests = true;
+        } else if (test.exclude) {
+            excludedTests = true;
+        }
+
+        testFunction(test.description, async () => {
+            const invalidImports = await insulate(test.config, undefined);
+
+            const invalidImportReasons = invalidImports.map(
+                (invalidImport) => invalidImport.reason,
+            );
+
+            expect(invalidImportReasons).toEqual(test.expectedInvalidImports);
         });
+    });
+
+    const noForcedTestsFunction = forcedTests ? fit : it;
+
+    noForcedTestsFunction('should have no forced tests', () => {
+        expect(forcedTests).toBeFalsy();
+    });
+    noForcedTestsFunction('should not have any excluded tests', () => {
+        expect(excludedTests).toBeFalsy();
     });
 });

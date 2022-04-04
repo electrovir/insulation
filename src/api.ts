@@ -1,3 +1,4 @@
+import {replaceWithWindowsPathIfNeeded} from 'augment-vir/dist/node-only';
 import {IModule} from 'dependency-cruiser';
 import {existsSync, lstatSync} from 'fs';
 import {join, relative} from 'path';
@@ -9,21 +10,23 @@ import {
     isChildDir,
 } from './dependencies';
 import {InvalidInsulationConfigError} from './errors/invalid-insulation-config-error';
-import {posixToWin} from './string';
 
 export async function insulate(
     inputConfig: Partial<InsulationConfig>,
+    configFilePath: undefined | string,
     includeOriginalModuleList: true,
 ): Promise<{invalidDeps: InvalidDependency[]; modules: IModule[]}>;
 export async function insulate(
     inputConfig: Partial<InsulationConfig>,
+    configFilePath: undefined | string,
     includeOriginalModuleList?: false | undefined,
 ): Promise<InvalidDependency[]>;
 export async function insulate(
     inputConfig: Partial<InsulationConfig>,
+    configFilePath: undefined | string,
     includeOriginalModuleList?: boolean | undefined,
 ): Promise<InvalidDependency[] | {invalidDeps: InvalidDependency[]; modules: IModule[]}> {
-    const config = finalizeInsulationConfig(inputConfig);
+    const config = finalizeInsulationConfig(inputConfig, configFilePath);
 
     const relativePath = relative(process.cwd(), config.checkDirectory);
 
@@ -49,13 +52,15 @@ export async function insulate(
         .forEach((dir) => {
             if (!existsSync(dir)) {
                 throw new InvalidInsulationConfigError(
-                    `"${dir}" from Insulation config does not exist`,
+                    `"${dir}" path from config does not exist`,
+                    configFilePath,
                     inputConfig,
                 );
             }
             if (!lstatSync(dir).isDirectory()) {
                 throw new InvalidInsulationConfigError(
-                    `"${dir}" from Insulation config is not a directory`,
+                    `"${dir}" path from config is not a directory`,
+                    configFilePath,
                     inputConfig,
                 );
             }
@@ -63,7 +68,7 @@ export async function insulate(
 
     const modules = getDependencyList(config);
     const invalidModules = modules.reduce((invalidModules: InvalidDependency[], currentModule) => {
-        const modulePath = posixToWin(currentModule.source);
+        const modulePath = replaceWithWindowsPathIfNeeded(currentModule.source);
         const insulationPath = insulationPaths.find((path) => {
             return isChildDir(modulePath, makeRelative(path));
         });
@@ -74,7 +79,7 @@ export async function insulate(
         const pathConfig = config.imports[insulationPath];
 
         // check allowed paths
-        if (pathConfig.allow) {
+        if (pathConfig?.allow) {
             const notAllowedImports = currentModule.dependencies
                 .filter((dependency) => {
                     // dependency is in the current module's dir, this is always allowed
@@ -102,7 +107,7 @@ export async function insulate(
         }
 
         // check blocked paths
-        if (pathConfig.block) {
+        if (pathConfig?.block) {
             const blockedImports = currentModule.dependencies
                 .filter((dependency) => {
                     // allow imports from core modules

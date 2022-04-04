@@ -1,14 +1,14 @@
 {
-    "checkDirectory": "test-imports",
+    "checkDirectory": "test-files",
     "imports": {
         "a": {
             "allow": ["b"]
         },
         "aab": {
-            "allow": ["b"]
+            "allow": ["a"]
         },
         "b": {
-            "allow": ["a"]
+            "block": ["a"]
         }
     }
 }

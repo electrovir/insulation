@@ -1,27 +1,31 @@
 #!/usr/bin/env node
 
 import {readConfigFile} from '.';
+import {insulate} from './api';
 import {InvalidDependency} from './dependencies';
 import {NotInsulatedError} from './errors/not-insulated-error';
-import {insulate} from './insulate';
 
 function handleResults(invalidDeps: InvalidDependency[], loud: boolean) {
     if (invalidDeps.length > 0) {
         if (loud) {
             const badImportsMapped = invalidDeps.reduce(
-                (accum: {[key: string]: InvalidDependency[]}, invalidDependency) => {
-                    if (!accum.hasOwnProperty(invalidDependency.importedBy)) {
-                        accum[invalidDependency.importedBy] = [];
+                (accum: Record<string, InvalidDependency[]>, invalidDependency) => {
+                    let child = accum[invalidDependency.importedBy];
+                    if (!child) {
+                        child = [];
+                        accum[invalidDependency.importedBy] = child;
                     }
-                    accum[invalidDependency.importedBy].push(invalidDependency);
+
+                    child.push(invalidDependency);
                     return accum;
                 },
                 {},
             );
 
             Object.keys(badImportsMapped).forEach((moduleName) => {
+                const child = badImportsMapped[moduleName] ?? [];
                 console.error(`${moduleName} incorrectly imports:`);
-                badImportsMapped[moduleName].forEach((badDependency) =>
+                child.forEach((badDependency) =>
                     console.error(`\t${badDependency.dependency.resolved}`),
                 );
             });
@@ -38,7 +42,7 @@ function handleResults(invalidDeps: InvalidDependency[], loud: boolean) {
 async function cli(insulationFilePath?: string) {
     const configJson = readConfigFile(insulationFilePath);
     try {
-        const {invalidDeps} = await insulate(configJson, true);
+        const {invalidDeps} = await insulate(configJson, insulationFilePath, true);
         return handleResults(invalidDeps, !configJson.silent);
     } catch (error) {
         if (!configJson.silent) {
